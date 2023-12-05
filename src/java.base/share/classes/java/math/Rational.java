@@ -2134,6 +2134,12 @@ public class Rational extends Number implements Comparable<Rational> {
             }
         }
 
+        if (nBits < prec) { // add trailing zeros to fit double precision
+            shift = prec - nBits;
+            significand <<= shift;
+            nBits += shift;
+        }
+
         significand &= DoubleConsts.SIGNIF_BIT_MASK; // remove the implicit bit
 
         if (!rem.isZero()) { // inexact result
@@ -2261,6 +2267,12 @@ public class Rational extends Number implements Comparable<Rational> {
                 rem.leftShift(shift); // align remainder
                 // now rem / den < 1
             }
+        }
+
+        if (nBits < prec) { // add trailing zeros to fit float precision
+            shift = prec - nBits;
+            significand <<= shift;
+            nBits += shift;
         }
 
         significand &= FloatConsts.SIGNIF_BIT_MASK; // remove the implicit bit
