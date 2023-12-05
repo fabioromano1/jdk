@@ -57,7 +57,7 @@ public abstract class ShortVector extends AbstractVector<Short> {
 
     static final int FORBID_OPCODE_KIND = VO_ONLYFP;
 
-    static final ValueLayout.OfShort ELEMENT_LAYOUT = ValueLayout.JAVA_SHORT.withBitAlignment(8);
+    static final ValueLayout.OfShort ELEMENT_LAYOUT = ValueLayout.JAVA_SHORT.withByteAlignment(1);
 
     @ForceInline
     static int opCode(Operator op) {
@@ -2846,7 +2846,7 @@ public abstract class ShortVector extends AbstractVector<Short> {
      *
      * @param i the lane index
      * @return the lane element at lane index {@code i}
-     * @throws IllegalArgumentException if the index is is out of range
+     * @throws IllegalArgumentException if the index is out of range
      * ({@code < 0 || >= length()})
      */
     public abstract short lane(int i);
@@ -2864,7 +2864,7 @@ public abstract class ShortVector extends AbstractVector<Short> {
      * @param e the value to be placed
      * @return the result of replacing the lane element of this vector at lane
      * index {@code i} with value {@code e}.
-     * @throws IllegalArgumentException if the index is is out of range
+     * @throws IllegalArgumentException if the index is out of range
      * ({@code < 0 || >= length()})
      */
     public abstract ShortVector withLane(int i, short e);
@@ -3275,8 +3275,6 @@ public abstract class ShortVector extends AbstractVector<Short> {
      *         if {@code offset+N*2 < 0}
      *         or {@code offset+N*2 >= ms.byteSize()}
      *         for any lane {@code N} in the vector
-     * @throws IllegalArgumentException if the memory segment is a heap segment that is
-     *         not backed by a {@code byte[]} array.
      * @throws IllegalStateException if the memory segment's session is not alive,
      *         or if access occurs from a thread other than the thread owning the session.
      * @since 19
@@ -3308,7 +3306,7 @@ public abstract class ShortVector extends AbstractVector<Short> {
      * short[] ar = new short[species.length()];
      * for (int n = 0; n < ar.length; n++) {
      *     if (m.laneIsSet(n)) {
-     *         ar[n] = slice.getAtIndex(ValuaLayout.JAVA_SHORT.withBitAlignment(8), n);
+     *         ar[n] = slice.getAtIndex(ValuaLayout.JAVA_SHORT.withByteAlignment(1), n);
      *     }
      * }
      * ShortVector r = ShortVector.fromArray(species, ar, 0);
@@ -3332,8 +3330,6 @@ public abstract class ShortVector extends AbstractVector<Short> {
      *         or {@code offset+N*2 >= ms.byteSize()}
      *         for any lane {@code N} in the vector
      *         where the mask is set
-     * @throws IllegalArgumentException if the memory segment is a heap segment that is
-     *         not backed by a {@code byte[]} array.
      * @throws IllegalStateException if the memory segment's session is not alive,
      *         or if access occurs from a thread other than the thread owning the session.
      * @since 19
