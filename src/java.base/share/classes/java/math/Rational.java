@@ -179,7 +179,7 @@ import jdk.internal.math.FloatConsts;
  *      for Floating-Point Arithmetic</cite></a>
  *
  * @author Fabio Romano
- * @since 21
+ * @since 22
  */
 public class Rational extends Number implements Comparable<Rational> {
     /**
@@ -1408,7 +1408,7 @@ public class Rational extends Number implements Comparable<Rational> {
         // now (mc.roundingMode != UNNECESSARY && mc.precision > 0)
 
         /*
-         * The code below use the following relations:
+         * The code below uses the following relations:
          *
          * x = y * 10 ^ exp
          *
@@ -2058,26 +2058,31 @@ public class Rational extends Number implements Comparable<Rational> {
             return signum == -1 ? -fl : fl;
         // At this point, this Rational is non-integer
 
-        final int flBits = floor.bitLength();
         final int prec = Double.PRECISION;
-        if (flBits > prec) { // integer part does not fit into a double
+        final int flLen = floor.bitLength();
+        final long flBits = Double.doubleToLongBits(fl);
+        if (flLen > prec) { // integer part does not fit into a double
+            double res = fl;
             // check if the 0.5 bit is set to round up, since this Rational is non-integer
-            double res = floor.testBit(flBits - prec - 1) ? Math.nextUp(fl) : fl;
+            if (floor.testBit(flLen - prec - 1)) {
+                if (floor.testBit(flLen - prec) == ((flBits & 1L) == 1L)) // check if fl is not already rounded up
+                    res = Math.nextUp(fl);
+            }
             return signum == -1 ? -res : res;
         }
 
         long significand;
         final long biasedExp;
-        int nBits; // computed bits of significand
+        int nBits; // initially computed bits of significand
         MutableBigInteger rem = new MutableBigInteger(numerator);
         final MutableBigInteger den = new MutableBigInteger(denominator.mag);
 
         // compute initial value of significand
         if (floor.signum == 1) { // non-zero integer part
             // unpack biased exponent of integer part
-            biasedExp = (Double.doubleToLongBits(fl) & DoubleConsts.EXP_BIT_MASK) >> 52;
-            significand = floor.longValue();
-            nBits = flBits;
+            biasedExp = (flBits & DoubleConsts.EXP_BIT_MASK) >> 52;
+            significand = flBits & DoubleConsts.SIGNIF_BIT_MASK;
+            nBits = flLen;
         } else { // no integer part
             // normalize
             int scale = (int) Math.max(1, den.bitLength() - rem.bitLength());
@@ -2091,56 +2096,33 @@ public class Rational extends Number implements Comparable<Rational> {
             rem.subtract(den); // subtract one to (rem / den)
             // now rem / den < 1
 
-            significand = 1L; // set the most significant bit
             // compute the correct biased exponent
             if (scale < DoubleConsts.EXP_BIAS) { // normal number
-                nBits = 1; // count the implicit bit
+                significand = 0L;
                 biasedExp = -scale + DoubleConsts.EXP_BIAS; // biasedExp > 0
+                nBits = 1; // count the implicit bit
             } else { // subnormal number
                 nBits = scale + Double.MIN_EXPONENT + 1; // scale - 1022 + 1, count the implicit bit
-                biasedExp = 0L;
-
                 if (nBits > prec) { // abs(this) < Double.MIN_VALUE
                     // half even rounding
                     double res = nBits > prec + 1 || rem.isZero() ? 0.0 : Double.MIN_VALUE;
                     return signum == -1 ? -res : res;
                 }
+
+                significand = 1L << (prec - nBits); // set the most significant bit
+                biasedExp = 0L;
             }
         }
         // now rem / den < 1
 
-        // compute remaining bits, stop if remainder is zero
-        int shift;
-        for (; !rem.isZero() && nBits < prec; nBits += shift) {
-            shift = (int) Math.max(1, den.bitLength() - rem.bitLength());
-
-            if (nBits + shift <= prec) { // shifted significand fits in double precision
-                significand <<= shift;
-                rem.leftShift(shift);
-                // now 0.5 <= rem / den < 2
-                final MutableBigInteger diff = new MutableBigInteger(rem);
-
-                // subtract one to (rem / den)
-                if (diff.subtract(den) != -1) { // rem / den >= 1
-                    significand |= 1L;
-                    rem = diff;
-                }
-                // now rem / den < 1
-            } else { // end of iterating
-                shift = prec - nBits;
-                significand <<= shift; // add trailing zeros
-                rem.leftShift(shift); // align remainder
-                // now rem / den < 1
-            }
+        // compute remaining bits
+        if (nBits < prec && !rem.isZero()) {
+            rem.leftShift(prec - nBits);
+            MutableBigInteger q = new MutableBigInteger();
+            rem = rem.divide(den, q);
+            final int lo = q.offset+q.intLen-1;
+            significand |= q.toLong();
         }
-
-        if (nBits < prec) { // add trailing zeros to fit double precision
-            shift = prec - nBits;
-            significand <<= shift;
-            nBits += shift;
-        }
-
-        significand &= DoubleConsts.SIGNIF_BIT_MASK; // remove the implicit bit
 
         if (!rem.isZero()) { // inexact result
             // compute the 0.5 bit to round
@@ -2193,26 +2175,31 @@ public class Rational extends Number implements Comparable<Rational> {
             return signum == -1 ? -fl : fl;
         // At this point, this Rational is non-integer
 
-        final int flBits = floor.bitLength();
         final int prec = Float.PRECISION;
-        if (flBits > prec) { // integer part does not fit into a float
+        final int flLen = floor.bitLength();
+        final int flBits = Float.floatToIntBits(fl);
+        if (flLen > prec) { // integer part does not fit into a float
+            float res = fl;
             // check if the 0.5 bit is set to round up, since this Rational is non-integer
-            float res = floor.testBit(flBits - prec - 1) ? Math.nextUp(fl) : fl;
+            if (floor.testBit(flLen - prec - 1)) {
+                if (floor.testBit(flLen - prec) == ((flBits & 1) == 1)) // check if fl is not already rounded up
+                    res = Math.nextUp(fl);
+            }
             return signum == -1 ? -res : res;
         }
 
         int significand;
         final int biasedExp;
-        int nBits; // computed bits of significand
+        final int nBits; // initially computed bits of significand
         MutableBigInteger rem = new MutableBigInteger(numerator);
         final MutableBigInteger den = new MutableBigInteger(denominator.mag);
 
         // compute initial value of significand
         if (floor.signum == 1) { // non-zero integer part
             // unpack biased exponent of integer part
-            biasedExp = (Float.floatToIntBits(fl) & FloatConsts.EXP_BIT_MASK) >> 23;
-            significand = floor.intValue();
-            nBits = flBits;
+            biasedExp = (flBits & FloatConsts.EXP_BIT_MASK) >> 23;
+            significand = flBits & FloatConsts.SIGNIF_BIT_MASK;
+            nBits = flLen;
         } else { // no integer part
             // normalize
             int scale = (int) Math.max(1, den.bitLength() - rem.bitLength());
@@ -2226,56 +2213,32 @@ public class Rational extends Number implements Comparable<Rational> {
             rem.subtract(den); // subtract one to (rem / den)
             // now rem / den < 1
 
-            significand = 1; // set the most significant bit
             // compute the correct biased exponent
             if (scale < FloatConsts.EXP_BIAS) { // normal number
-                nBits = 1; // count the implicit bit
+                significand = 0;
                 biasedExp = -scale + FloatConsts.EXP_BIAS; // biasedExp > 0
+                nBits = 1; // count the implicit bit
             } else { // subnormal number
                 nBits = scale + Float.MIN_EXPONENT + 1; // scale - 126 + 1, count the implicit bit
-                biasedExp = 0;
-
                 if (nBits > prec) { // abs(this) < Float.MIN_VALUE
                     // half even rounding
                     float res = nBits > prec + 1 || rem.isZero() ? 0f : Float.MIN_VALUE;
                     return signum == -1 ? -res : res;
                 }
+
+                significand = 1 << (prec - nBits); // set the most significant bit
+                biasedExp = 0;
             }
         }
         // now rem / den < 1
 
-        // compute remaining bits, stop if remainder is zero
-        int shift;
-        for (; !rem.isZero() && nBits < prec; nBits += shift) {
-            shift = (int) Math.max(1, den.bitLength() - rem.bitLength());
-
-            if (nBits + shift <= prec) { // shifted significand fits in float precision
-                significand <<= shift;
-                rem.leftShift(shift);
-                // now 0.5 <= rem / den < 2
-                final MutableBigInteger diff = new MutableBigInteger(rem);
-
-                // subtract one to (rem / den)
-                if (diff.subtract(den) != -1) { // rem / den >= 1
-                    significand |= 1;
-                    rem = diff;
-                }
-                // now rem / den < 1
-            } else { // end of iterating
-                shift = prec - nBits;
-                significand <<= shift; // add trailing zeros
-                rem.leftShift(shift); // align remainder
-                // now rem / den < 1
-            }
+        // compute remaining bits
+        if (nBits < prec && !rem.isZero()) {
+            rem.leftShift(prec - nBits);
+            MutableBigInteger q = new MutableBigInteger();
+            rem = rem.divide(den, q);
+            significand |= (int) q.toLong();
         }
-
-        if (nBits < prec) { // add trailing zeros to fit float precision
-            shift = prec - nBits;
-            significand <<= shift;
-            nBits += shift;
-        }
-
-        significand &= FloatConsts.SIGNIF_BIT_MASK; // remove the implicit bit
 
         if (!rem.isZero()) { // inexact result
             // compute the 0.5 bit to round
