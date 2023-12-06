@@ -2134,6 +2134,14 @@ public class Rational extends Number implements Comparable<Rational> {
             }
         }
 
+        if (nBits < prec) { // add trailing zeros to fit double precision
+            shift = prec - nBits;
+            significand <<= shift;
+            nBits += shift;
+        }
+
+        significand &= DoubleConsts.SIGNIF_BIT_MASK; // remove the implicit bit
+
         if (!rem.isZero()) { // inexact result
             // compute the 0.5 bit to round
             rem.leftShift(1);
@@ -2149,13 +2157,7 @@ public class Rational extends Number implements Comparable<Rational> {
                 if (rem_cmp_den > 0 || (significand & 1L) == 1) // half even rounding
                     significand++;
             }
-        } else if (nBits < prec) { // add trailing zeros to fit double precision
-            shift = prec - nBits;
-            significand <<= shift;
-            nBits += shift;
         }
-
-        significand &= DoubleConsts.SIGNIF_BIT_MASK; // remove the implicit bit
         /*
          * If significand == 2^53, we'd need to set all of the significand bits to zero
          * and add 1 to the exponent. This is exactly the behavior we get from just
@@ -2267,6 +2269,14 @@ public class Rational extends Number implements Comparable<Rational> {
             }
         }
 
+        if (nBits < prec) { // add trailing zeros to fit float precision
+            shift = prec - nBits;
+            significand <<= shift;
+            nBits += shift;
+        }
+
+        significand &= FloatConsts.SIGNIF_BIT_MASK; // remove the implicit bit
+
         if (!rem.isZero()) { // inexact result
             // compute the 0.5 bit to round
             rem.leftShift(1);
@@ -2282,13 +2292,7 @@ public class Rational extends Number implements Comparable<Rational> {
                 if (rem_cmp_den > 0 || (significand & 1) == 1) // half even rounding
                     significand++;
             }
-        } else if (nBits < prec) { // add trailing zeros to fit float precision
-            shift = prec - nBits;
-            significand <<= shift;
-            nBits += shift;
         }
-
-        significand &= FloatConsts.SIGNIF_BIT_MASK; // remove the implicit bit
         /*
          * If significand == 2^24, we'd need to set all of the significand bits to zero
          * and add 1 to the exponent. This is exactly the behavior we get from just
